@@ -1,0 +1,77 @@
+import time
+import pandas as pd
+import numpy as np
+from binance.client import Client
+from binance.enums import *
+import talib
+import math
+from decimal import Decimal
+import datetime
+
+"""                     ---------Notes: 10.2.3 ----------
+* This version of the code runs and works quite well
+* Close short also round decimal fix
+* Fixed P&L MAth, only update after trades are closed so the number is right, and fixed math for PNL
+* fixed math that incremenet won or lost trades
+*instead of hardcoded wait 15, checks for next candle to fix offset
+                        --------------------------
+"""
+
+# Define your Binance API credentials
+API_KEY = 'binance api key here'
+API_SECRET = 'binance api secret here'
+
+# Initialize the Binance client
+client = Client(api_key=API_KEY, api_secret=API_SECRET)
+
+# Define the trading parameters
+symbol = 'SOLUSDT'
+fast_period = 5
+slow_period = 15
+signal_period = 9
+borrow_limit = 0.8  # use 5% of available usd balance (add '*3' to use margin)
+
+
+# Returns USD balance
+def get_Balance(account):
+    current_balance = float([asset for asset in account['userAssets'] if asset['asset'] == 'USDT'][0]['free'])
+    return current_balance
+
+def get_Precision(symbol):
+    info = client.get_symbol_info(symbol)
+    symbol_info = next((x for x in info['filters'] if x['filterType'] == 'PRICE_FILTER'), None)
+    precision = int(round(-math.log(float(symbol_info['tickSize']), 10), 0))
+    return precision
+
+
+# Get the current price of the symbol
+ticker = client.get_symbol_ticker(symbol=symbol)
+price = float(ticker['price'])
+print(f"Current price of {symbol}: {price}")
+
+# Get the step size for the symbol
+exchange_info = client.get_exchange_info()
+symbol_info = next((s for s in exchange_info['symbols'] if s['symbol'] == symbol), None)
+step_size = float(symbol_info['filters'][1]['stepSize'])
+
+print(symbol_info)
+print('Step Size: ',step_size)
+
+# Get the current margin account balance in USDT
+account = client.get_margin_account()
+usdt_balance = float([asset for asset in account['userAssets'] if asset['asset'] == 'USDT'][0]['free'])
+print(f"Current margin account balance in USDT: {usdt_balance}")
+
+# # Calculate the borrow amount based on the available balance and the borrow limit
+# borrow_amount = round(usdt_balance * borrow_limit / price / step_size) * step_size
+
+# # Borrow the required amount of margin
+# client.create_margin_order(
+#     symbol=symbol,
+#     side=SIDE_BUY,
+#     type=ORDER_TYPE_MARKET,
+#     quantity=borrow_amount,
+#     sideEffectType='MARGIN_BUY',
+#     isIsolated='FALSE'
+# )
+# print(f"Opened Long position for {borrow_amount} sol, using 3x margin account")
